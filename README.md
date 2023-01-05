@@ -1,4 +1,11 @@
-# 👨🏼‍💻 Deploying a 3 Tier H.A Web Application on AWS 👨🏼‍💻
+# 👨🏼‍💻 Deploying a 4 Tier Mailing Web Application on AWS 👨🏼‍💻
+## NOTE (ANNOUNCEMENT) DEC 29th:
+- I recently updated the branch name `three-tier-mailing-app-project` where the project scripts are in to `four-tier-mailing-app-project` 
+- You do not have to border about changing anything on your end because the project runbooks/scripts are all still the same, I only update the branch name to match the architecture we're building for this Application.
+- To make things esier for everyone, I have `MADE` the `four-tier-mailing-app-project` BRANCH the `DEFAULT` BRANCH. So you don't have to switch to the project branch everytime you click on the base repo link. 
+
+## 
+In this runbook, we will implement the PHP Mailing deployment with multi-tier architecture on AWS. We will be using the Amazon EC2 service on AWS for Webservers and Appservers. For the Mysql database, we will use the RDS service. We'll also see how to connect the Webserver to the Appservers and the Appservers with the Database to achieve a multi-tier application architecture deployment.
 
 ## STEP 1: Create The Base Networking Infrastructure For NAT/ELB, Webservers, Appservers and Database
 ### A) Create The VPC Network
@@ -49,7 +56,7 @@
 - CidirBlock: `10.0.40.0`
 - Availability Zone: `us-west-1c`
 
-## STEP 2: Create 2 Public Route Rable and 6 Private Route Tables (Because of NAT Redundancy Implementation)
+## STEP 2: Create 4 Public Route Rable and 4 Private Route Tables (Because of NAT Redundancy Implementation)
 - See AWS Doc: https://www.shorturl.at/HSU18
 
 ### A) NAT/ALB Public Subnet 1 Route Table
@@ -100,7 +107,22 @@
 - Name: `Prod-VPC-IGW`
 - VPC: Select the `Prod-VPC` Network
 
-2. Configure/Edit the `Prod-NAT-ALB-Public-RT` Route Table 
+2. Configure/Edit the `Prod-NAT-ALB-Public-RT-1` Route Table 
+- Destination: `0.0.0.0/0`
+- Target: Select the `Prod-VPC-IGW`
+- `SAVE`
+
+3. Configure/Edit the `Prod-NAT-ALB-Public-RT-2` Route Table 
+- Destination: `0.0.0.0/0`
+- Target: Select the `Prod-VPC-IGW`
+- `SAVE`
+
+4. Configure/Edit the `Prod-Webserver-RT-1` Route Table 
+- Destination: `0.0.0.0/0`
+- Target: Select the `Prod-VPC-IGW`
+- `SAVE`
+
+5. Configure/Edit the `Prod-Webserver-RT-2` Route Table 
 - Destination: `0.0.0.0/0`
 - Target: Select the `Prod-VPC-IGW`
 - `SAVE`
@@ -116,20 +138,9 @@
 - Elastic IP: Clcik `Allocate Elastic IP`
 - Click `Create NAT gateway`
 
-### C) Configure/Edit the Route Tables of `Webserver subnets`, `Appserver subnets` and `Database subnets` to Add the `Nat gateway` Configs
-### C.1) Update the `Webserver subnet` Route tables (2) with the following configs
+### C) Configure/Edit the Route Tables of `Appserver subnets` and `Database subnets` to Add the `Nat gateway` Configs
 
-1. Select the `Prod-Webserver-RT-1`
-- Click on Edit and `Add route`
-- Destination: `0.0.0.0/0`
-- Target: Select `Prod-NAT-Gateway-1`
-
-2. Select the `Prod-Webserver-RT-2`
-- Click on Edit and `Add route`
-- Destination: `0.0.0.0/0`
-- Target: Select `Prod-NAT-Gateway-2`
-
-### C.2) Update the `Appserver subnet` Route tables (2) with the following configs
+### C.1) Update the `Appserver subnet` Route tables (2) with the following configs
 
 1. Select the `Prod-Appserver-RT-1`
 - Click on Edit and `Add route`
@@ -141,7 +152,7 @@
 - Destination: `0.0.0.0/0`
 - Target: Select `Prod-NAT-Gateway-2`
 
-### C.3) Update the `Database subnet` Route tables (2) with the following configs
+### C.2) Update the `Database subnet` Route tables (2) with the following configs
 
 1. Select the `Prod-Database-RT-1`
 - Click on Edit and `Add route`
@@ -180,7 +191,7 @@
         - Ports: `22`
             - Source: `Bastion-Host-Security-Group` ID
 
-### Create the Backend/Internal Load Balancer Security Group
+### Create the Backend Load Balancer Security Group
 - Click on Create Security group
     - Name: `Backend-LB-Security-Group`
     - Inbound: 
@@ -205,8 +216,8 @@
         - Ports: `3306`
             - Source: `Bastion-Host-Security-Group` ID
 
-## STEP 6: Create External/Frontend and Internal/Backend Load Balancers
-### Create External/Frontend Load Balancer
+## STEP 6: Create Frontend and Backend Load Balancers
+### Create Frontend Load Balancer
 - Navigate to `EC2/Load Balancers` and Click on `Create Load Balancer`
     - Type: Choose `Application Load Balancer`
     - Load balancer name: `Prod-Frontend-LB`
@@ -224,7 +235,7 @@
             - VPC: Select `Prod-VPC`
             - Protocol version: `HTTP1`
             - Health checks: `HTTP`
-            - Health check path: `/`
+            - Health check path: `/VenturaMailingApp.php`
             - Click on `Next`
             - Click on `Create target group`
 
@@ -236,11 +247,11 @@
     
     - Click on `Create load balancer`
 
-### Create Internal/Backend Load Balancer
+### Create Backend Load Balancer
 - Navigate to `EC2/Load Balancers` and Click on `Create Load Balancer`
     - Type: Choose `Application Load Balancer`
     - Load balancer name: `Prod-Backend-LB`
-    - Scheme: `Internal`
+    - Scheme: `Internet-facing`
     -  IP address type: `IPv4`
     - Network mapping:
         - VPC: Select `Prod-VPC`
@@ -254,7 +265,7 @@
             - VPC: Select `Prod-VPC`
             - Protocol version: `HTTP1`
             - Health checks: `HTTP`
-            - Health check path: `/`
+            - Health check path: `/VenturaMailingApp.php`
             - Click on `Next`
             - Click on `Create target group`
 
@@ -266,7 +277,7 @@
     
     - Click on `Create load balancer`
 
-## STEP : Create an S3 Bucket Environment To Upload The Automation and Database Configs
+## STEP 7: Create an S3 Bucket Environment To Upload The Automation and Database Configs
 - Navigate to `Amazon S3`
 - Click on `Create Bucket`
     - Name: Use naming convention `prod-proxy-app-db-config-YOUR-LAST-NAME-and-DAY-OF-BIRTH`
@@ -277,7 +288,7 @@
     - Default encryption: `Enable`
     - Click `CREATE BUCKET`
 
-## STEP : Create a Bastion Host VM For Remote Access ((SSH)) To Webservers, Appservers and MySQL Database
+## STEP 8: Create a Bastion Host VM For Remote Access ((SSH)) To Webservers, Appservers and MySQL Database
 - Navigate to Instance in EC2
 - Click on `Create Instance`
     - Name: `Prod-Bastion-Host`
@@ -292,7 +303,28 @@
     - Click `LAUNCH INSTANCE`
 
 ### Setup SSH Port Forwarding Between Your Local and Bastion Host To Point at The Web, App and DB Instance.
-- 
+```exec ssh-agent bash``` 
+
+```eval 'ssh-agent -s'```
+
+```ssh-agent bash```
+
+#### ssh-add -L    
+- (Once you run this command it will tell you if you have added some identities to SSH agen or not. If not run the bellow command to add identity or private key) 
+```ssh-add -k "Absolute Path to your Private key file on your Local"```
+
+```ssh-add -L```
+Now run the above command to check added identities or Private keys 
+
+- Now we have to use this SSH Agent Identity to login to our bastion in the public subnet then we'll be able to login to our private server 
+
+#### ssh -A -i "private key" USER_NAME@HostNameORipAddress
+```ssh -A -i "private key" USER_NAME@HostNameORipAddress```
+- (-A stands for AGENT FORWARDING. And once you get into the instance in the Bastion host using the SSH AGENT Identity, when you try to SSH into the instance in the private subnet now, what SSH AGENT will do is. It will make use of the Identity in your local machine to access the server. Then you'll be authenticated) 
+
+#### ssh USER_NAME@IPAddress
+```ssh USER_NAME@"Private Instance IP Address"```
+- (Once you run this command you will be allowed into the server. That is SSH Agent port fording. It makes use of the locally stored Identity). 
 
 ### Create an AmazonS3ReadOnlyAccess For Your Web and App Servers
 - Navigate to IAM
@@ -304,7 +336,7 @@
     - Name: `EC2-AmazonS3ReadOnlyAccess`
     - Click `CREATE`
 
-## STEP 7: Create Webservers and Apservers Launch Templates
+## STEP 9: Create Webservers and Apservers Launch Templates
 ### Create Webserver Launch Template
 - Naviagte to EC2/Launch Configuration
     - Click on `Create Launch Configuration`
@@ -320,8 +352,8 @@
         
         - Expand `Advance details`
             - IAM instance profile: Select `S3-AmazonS3ReadOnlyAccess` IAM Role
-            - `NOTE:` Make sure to update the LoadBalancer DNS `INTERNAL_LOAD_BALANCER_DNS` in https://github.com/awanmbandi/aws-real-world-projects/blob/main/webserver-reverse-proxy-config/000-default.conf `before passing the below User Data`
-            - User data: provide the user data in https://github.com/awanmbandi/aws-real-world-projects/blob/main/webserver-reverse-proxy-config/web-automation.sh
+            - `NOTE:` Make sure to update the LoadBalancer DNS `BACKEND_LOAD_BALANCER_DNS` in https://github.com/awanmbandi/aws-real-world-projects/blob/three-tier-mailing-app-project/webserver-reverse-proxy-config/000-default.conf `before passing the below User Data`
+            - User data: provide the user data in https://github.com/awanmbandi/aws-real-world-projects/blob/three-tier-mailing-app-project/webserver-reverse-proxy-config/web-automation.sh
             - `NOTE:` Update the `webserver-reverse-proxy-config/000-default.conf` on GitHub before passing User Data
 
             - Click on `Create launch template`
@@ -332,7 +364,7 @@
     - Switch by Clicking on `Create launch template`
         - Name: `Prod-Appservers-LT`
         - Template version description: `Prod-Appservers-LT Version 1`
-        - AMI: Select for `Ubuntu 18.04`
+        - AMI: Select for `Amazon Linux 2`
         - Instance type: `t2.micro`
         - Key pair: Create a new key pair `california-keypair`
         - Network Settings:
@@ -347,7 +379,7 @@
             - Once changes have been made and user data passed 
             - Click on `Create launch template`
 
-## STEP 8: Create Webserver and Appserver Auto Scaling Groups
+## STEP 10: Create Webserver and Appserver Auto Scaling Groups
 ### A). Webserver Autocsaling Group
 - Navigate to `EC2/Auto Scaling`
     - Click on `Create Auto Scaling Group`
@@ -412,7 +444,7 @@
             - Click on `NEXT`
             - Click on `Create Auto Scaling Group`
 
-## STEP 9: Create a Database Subnet Group and Database Instance (RDS)
+## STEP 11: Create a Database Subnet Group and Database Instance (RDS)
 ### A) Create Databse Subnet Group
 - Navigate to the `RDS` Service
 - Click on `Subnet groups`
@@ -464,7 +496,7 @@
         - Deletion protection: `Disable`
     - Click `CREATE DATABASE`
 
-## STEP 10: Create a Route 53 Hosted Zone and Record For The Frontend Load Balancer Endpoint
+## STEP 12: Create a Route 53 Hosted Zone and Record For The Frontend Load Balancer Endpoint
 
 
 
